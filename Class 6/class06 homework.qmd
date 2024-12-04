@@ -1,0 +1,64 @@
+---
+title: "Class 6 Homework"
+author: "Morgan Black (PID A14904860)"
+format: pdf
+---
+
+
+```{r, warnings=FALSE, messages=FALSE}
+
+#Original code supplied in the homework file, with typos/erros fixed
+
+library(bio3d)
+s1 <- read.pdb("4AKE") # kinase with drug
+s2 <- read.pdb("1AKE") # kinase no drug
+s3 <- read.pdb("1E4Y") # kinase with drug
+s1.chainA <- trim.pdb(s1, chain="A", elety="CA")
+s2.chainA <- trim.pdb(s2, chain="A", elety="CA")
+s3.chainA <- trim.pdb(s3, chain="A", elety="CA")
+s1.b <- s1.chainA$atom$b
+s2.b <- s2.chainA$atom$b
+s3.b <- s3.chainA$atom$b
+plotb3(s1.b, sse=s1.chainA, typ="l", ylab="Bfactor")
+plotb3(s2.b, sse=s2.chainA, typ="l", ylab="Bfactor")
+plotb3(s3.b, sse=s3.chainA, typ="l", ylab="Bfactor")
+```
+
+
+##Write your own function starting from the code above that analyzes protein 
+drug interactions by reading in any protein PDB data and outputs a plot for 
+the specified protein.
+
+```{r, warnings=FALSE, messages=FALSE}
+
+#Call the bio3d package to use in the function below
+library(bio3d) 
+
+#Define the function name and input (protein identifier):
+drug_interaction <- function(protein){ 
+  #Read the structure of the input protein and assigns the data to "structure" 
+  structure <- read.pdb(protein) 
+  #Trim the protein data from the database to just look at the data in the 
+  #A chain of the protein and C-alpha atom type
+  Achain <- trim.pdb(structure, chain="A", elety="CA") 
+  #Subset the Bfactor data from the Achain database above as a vector
+  Bfactor <- Achain$atom$b 
+  #Plot the Bfactor response along the A chain amino acid sequence 
+  plotb3(Bfactor, sse=Achain, typ= "l", ylab="Bfactor") 
+}
+
+drug_interaction("4AKE")
+drug_interaction("1AKE")
+drug_interaction("1E4Y")
+
+#With this function, you can use any protein identifier name as the input.
+#This function reads the input protein structure from a database, focuses 
+#in on just the A chain and B factor relevant portion of the protein, then 
+#plots the Bfactor response going along the length of the protein.
+
+#The output of the function is a dot plot showing the Bfactor response 
+#at each amino acid position on the A chain of the protein sequence. 
+
+```
+
+

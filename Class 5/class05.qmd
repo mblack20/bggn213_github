@@ -1,0 +1,110 @@
+---
+title: "Class 05: Data Visualization with GGPLOT"
+author: "Morgan Black (PID A14904860)"
+format: pdf
+---
+
+```{r install and load package}
+
+#One time install of package
+#install.packages("ggplot2")
+
+```
+
+
+```{r basic plotting of cars data}
+
+#Load the package each session
+library(ggplot2) 
+
+#Creates just a blank plot canvas without any points
+ggplot(cars)
+
+#Creates a plot specifying the x and y data from the cars dataset, and 
+#plotting them as points on the plot
+ggplot(cars) +
+  aes(x=speed, y=dist) +
+  geom_point()
+
+
+#Add a fitted trendline to the point plot to help visualize the relationship 
+#between the x and y variables
+ggplot(cars) +
+  aes(x= speed, y=dist) +
+  geom_point() +
+  geom_smooth()
+
+
+#Add a trendline fitting a linear model without a shaded error region, 
+#instead of the trendline with a shaded error region from the previous plot
+ggplot(cars) +
+  aes(x=speed, y=dist) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE)
+
+#Add labels to the overall plot, x and y axes,  a subtitle to explain the plot 
+#in more detail, and a caption below to note the dataset used to make the plot
+ggplot(cars) + 
+  aes(x=speed, y=dist) +
+  geom_point() +
+  labs(title="Speed and Stopping Distances of Cars",
+       x="Speed (MPH)", 
+       y="Stopping Distance (ft)",
+       subtitle = "Stopping distance of different cars based on their speed 
+       prior to breaking",
+       caption="Dataset: 'cars'") +
+  geom_smooth(method="lm", se=FALSE) +
+  theme_bw()
+
+```
+
+```{r}
+
+#Call and read input dataset of RNAseq data for drug vs no drug treatment. Look 
+#at just the first 6 lines of data
+url <- "https://bioboot.github.io/bimm143_S20/class-material/up_down_expression.txt"
+genes <- read.delim(url)
+head(genes)
+
+#How many genes are in this dataset?
+nrow(genes)
+
+#What are the column names, and how many columns are there?
+colnames(genes)
+ncol(genes)
+
+#How many upregulated genes are there?
+table(genes$State)
+#There are 127 upregulated genes here
+
+#What fraction of total genes is upregulated in this dataset, to 2 sig figs?
+round((table(genes$State) / nrow(genes))*100, 2)
+#2.44
+
+
+#Make a basic scatter plot of this dataset
+ggplot(genes) + 
+    aes(x=Condition1, y=Condition2) +
+    geom_point()
+
+```
+```{r}
+
+#Add a layer of color to the point plot by mapping the "State" column to 
+#point color 
+p <- ggplot(genes) + 
+    aes(x=Condition1, y=Condition2, col=State) +
+    geom_point()
+p
+
+#Change the colors of the points
+p + scale_colour_manual( values=c("blue","gray","red") )
+
+#Add labels and annotations 
+p + scale_colour_manual(values=c("blue","gray","red")) +
+    labs(title="Gene Expresion Changes Upon Drug Treatment",
+         x="Control (no drug) ",
+         y="Drug Treatment")
+
+```
+
