@@ -1,0 +1,384 @@
+---
+title: "Class 8: PCA Mini Project"
+author: "Morgan Black (PID A14904860)"
+format: pdf
+---
+
+## Side note before starting about scaling:
+
+```{r}
+
+#Mean value of each column in mtcars dataset
+apply(mtcars, 2, mean)
+
+```
+
+```{r}
+
+#Spread of each column via standard deviation
+apply(mtcars, 2, sd)
+
+```
+
+```{r}
+
+pca <- prcomp(mtcars)
+biplot(pca)
+
+```
+
+Without scaling, the columns are measured in different units and the pca 
+analysis will be biased towards the units with higher counts/larger spread.
+
+```{r}
+
+#Scale the data
+mtscale <- scale(mtcars)
+head(mtscale)
+
+#Now look at the mean and standard deviation of each column
+round(apply(mtscale, 2, mean), 3)
+round(apply(mtscale, 2, sd), 3)
+
+```
+
+Let's plot to make sure the scaled data still has the same relationships. Plot
+'mpg' vs 'disp' for both the original and scaled data
+
+```{r}
+
+library(ggplot2)
+ggplot(mtcars, aes(mpg, disp)) +
+         geom_point()
+ggplot(mtscale, aes(mpg, disp)) +
+          geom_point()
+
+```
+
+
+```{r}
+
+pca2 <- prcomp(mtscale)
+biplot(pca2)
+
+```
+
+
+
+
+# Breast Cancer FNA Data
+
+## Preparing the data
+
+First download the csv file from the class website and put it in the current working directory thru Finder, then read it into R
+```{r}
+
+wisc.df <- read.csv("WisconsinCancer.csv", 
+                    row.names=1)
+#head(wisc.df)
+
+```
+
+Omit the 'diagnosis' column and create a new dataset
+```{r}
+
+wisc.data <- wisc.df[,-1]
+
+```
+
+Create a new vector that contains the diagnosis column from the original dataset. 
+```{r}
+
+diagnosis <- as.factor(wisc.df$diagnosis)
+
+```
+
+
+### Q1: How many observations are in this dataset?
+```{r}
+
+nrow(wisc.df)
+
+```
+### Q2: How many of the observations have a malignant diagnosis?
+```{r}
+
+table(wisc.df$diagnosis)
+
+```
+There are 212 malignant diagnoses.
+
+
+### Q3: How many variables/features in the data are suffixed with '_mean'?
+```{r}
+
+length(grep("_mean", colnames(wisc.data)))
+
+```
+There are 10.
+
+
+
+## Prinicpal Component Analysis
+
+Check the mean and standard deviation of the features to determine if the data should be scaled.
+```{r}
+
+round(colMeans(wisc.data), 3)
+round(apply(wisc.data, 2, sd), 3)
+
+```
+
+Perform PCA on wisc.data with scaling.
+```{r}
+
+wisc.pr <- prcomp(wisc.data, scale=TRUE)
+x <- summary(wisc.pr)
+x$importance
+
+#Plot the proportion of variance accounted for by each PC
+plot(x$importance[2,], typ='b')
+
+```
+
+
+### Q4: What proportion of the original variance is captured by the first PC?
+About 44% of the variance is captured by PC1.
+
+
+### Q5: How many PCs are required to describe at least 70% of the original variance?
+Three principal components are required to describe at least 70% of the variance (PC3 cumulative proportion is ~72.64%).
+
+
+### Q6: How many PCs are required to describe at least 90% of the original variance?
+Seven prinicpal components are required to describe at least 90% of the variance (PC7 cumulative proportion is ~91%).
+
+
+```{r}
+
+#biplot(wisc.pr)
+
+```
+### Q7: What stands out to you about this biplot?
+This plot is not understandable at all and is much too crowded to make any conclusions.
+
+
+Plot the observations by PC1 and PC2:
+```{r}
+
+#attributes(wisc.pr)
+#head(wisc.pr)
+plot(wisc.pr$x, col=diagnosis,
+     xlab="PC1", ylab="PC2")
+
+```
+
+Plot the observations by PC1 and PC3:
+```{r}
+
+plot(wisc.pr$x[,1], wisc.pr$x[,3], col=diagnosis,
+     xlab="PC1", ylab="PC3")
+
+```
+
+### Q8: What do you notice about the two previous plots?
+There is a cleaner more clear separation between clusters in the PC1 vs PC2 plot than the PC1 vs PC3 plot, indicating that PC2 explains more variance than PC3. 
+
+
+
+Use ggplot2 to make some nicer figures.
+```{r}
+
+df <- as.data.frame(wisc.pr$x)
+df$diagnosis <- diagnosis
+
+library(ggplot2)
+
+ggplot(df) +
+  aes(PC1, PC2, col=diagnosis) +
+  geom_point()
+
+
+
+```
+
+
+## Variance explained
+
+```{r}
+
+#Variance of each component
+pr.var <- wisc.pr$sdev^2
+head(pr.var)
+
+```
+
+```{r}
+
+#Variance explained by each PC
+pve <- pr.var/sum(pr.var)
+
+plot(pve, xlab="Principal Component",
+     ylab="Proportion of Variance Explained",
+     ylim=c(0,1), type="o")
+
+
+#Scree plot of the same data but in a bar plot with labels for each PC
+barplot(pve, ylab="Percent of Variance Explained",
+        names.arg=paste0("PC", 1:length(pve)), las=2, axes=FALSE)
+axis(2, at=pve, labels=round(pve,2)*100) #Creates y-axis bar label showing 
+                                          #percentages rather than proportion
+
+
+#ggplot based graph instead of base R bar plot
+#install.packages("factoextra")
+library(factoextra)
+fviz_eig(wisc.pr, addlabels = TRUE)
+
+```
+
+
+## Communicating PCA results
+
+### Q9: For the first PC, what is the component of the loading vector for the feature 'concave.points_mean'? This tells us how much this original feature contributes to the first PC.
+```{r}
+
+wisc.pr$rotation["concave.points_mean",1]
+
+
+```
+
+## Hierarchical clustering
+
+```{r}
+
+data.scaled <- scale(wisc.data)
+data.dist <- dist(data.scaled)
+wisc.hclust <- hclust(data.dist)
+plot(wisc.hclust)
+abline(a=19, b=0, col="red", lty=2)
+
+```
+### Q10: What's the height where this model has 4 clusters?
+19
+
+
+```{r}
+
+wisc.hclust.clusters <- cutree(wisc.hclust, k=4)
+table(wisc.hclust.clusters, diagnosis)
+
+```
+
+
+Explore different methods to combine points in hierarchical clustering. 
+```{r}
+
+wisc.hclust.single <- hclust(data.dist, method="single")
+wisc.hclust.cluster.single <- cutree(wisc.hclust.single, k=4)
+table(wisc.hclust.cluster.single, diagnosis)
+
+wisc.hclust.complete <- hclust(data.dist, method="complete")
+wisc.hclust.cluster.complete <- cutree(wisc.hclust.complete, k=4)
+table(wisc.hclust.cluster.complete, diagnosis)
+
+wisc.hclust.average <- hclust(data.dist, method="average")
+wisc.hclust.cluster.average <- cutree(wisc.hclust.average, k=4)
+table(wisc.hclust.cluster.average, diagnosis)
+
+wisc.hclust.ward.D2 <- hclust(data.dist, method="ward.D2")
+wisc.hclust.cluster.ward.D2 <- cutree(wisc.hclust.ward.D2, k=4)
+table(wisc.hclust.cluster.ward.D2, diagnosis)
+
+
+```
+## Q12: The "complete" method seems to give the best results compared to the expert diagnoses, giving less false positive/negative results but it is unclear whether this is a good thing or just fitting the data to match the experts conclusions.
+
+
+
+
+Now use PCA results to cluster, using the "ward.D2" method
+```{r}
+
+d<- dist(wisc.pr$x[,1:7])
+hc <- hclust(d, method="ward.D2")
+plot(hc)
+
+```
+
+Cut the tree to yield 2 clusters
+```{r}
+
+grps <- cutree(hc, k=2)
+table(grps)
+
+```
+
+Compare to the expert diagnoses of "M" vs "B"
+```{r}
+
+table(diagnosis, grps)
+
+```
+### Q13: How well does this model separate out the two diagnoses?
+This separates out the two diagnoses fairly well, but it is saying there are 28 false benign and 24 false malignant diagnoses from the analysis done here.
+
+
+```{r}
+
+table(diagnosis, wisc.hclust.clusters)
+
+```
+### Q14: How well does the earlier hierarchical clustering model (before PCA) do in terms of separating out the diagnoses?
+This model results in less false benign results compared to the expert diagnoses results. However, there are much more false malignant results in this model than in the PCA-based clustering model.
+
+
+
+```{r}
+#plot(wisc.pr$x[,1:2], col=grps)
+
+g <- as.factor(grps)
+#levels(g)
+g <- relevel(g,2)
+#levels(g)
+plot(wisc.pr$x[,1:2], col=g)
+
+
+plot(wisc.pr$x[,1:2], col=diagnosis)
+
+
+```
+
+
+
+
+## Prediction
+
+```{r}
+
+url <- "https://tinyurl.com/new-samples-CSV"
+new <- read.csv(url)
+npc <- predict(wisc.pr, newdata=new)
+#npc
+
+plot(wisc.pr$x[,1:2], col=g)
+points(npc[,1], npc[,2], col="blue", pch=16, cex=3)
+text(npc[,1], npc[,2], c(1,2), col="white")
+
+```
+### Q16: Which of these new patient groups should we prioritize for follow up based on your results?
+Since the numeral 1 was assigned to M (malignant) and the numeral 2 was assigned to B (benign) in this analysis, the patients in cluster 1 should be prioritized for follow-up since they have been both clustered into a malignant cluster by bioinformatics analysis and diagnosed by an expert as having malignant tissue. 
+
+
+```{r}
+
+loadings <- wisc.pr$rotation
+
+ggplot(loadings) +
+  aes(abs(PC1), reorder(rownames(loadings), -PC1)) +
+  geom_col()
+
+```
+
+
+
