@@ -8,3 +8,4 @@ My classwork from [BGGN213](https://bioboot.github.io/bggn213_F24/) at UC San Di
 - Class 7: [Machine Learning](https://github.com/mblack20/bggn213_github/blob/main/Class%207/class07.md)
 - Class 8: [Principal Component Analysis](https://github.com/mblack20/bggn213_github/blob/main/Class%208/class08.md)
 - Class 9: [Halloween Candy Mini-Project: PCA Analysis](https://github.com/mblack20/bggn213_github/blob/main/Class%209/class09.md)
+- Class 10: [Sructural Bioinformatics](https://github.com/mblack20/bggn213_github/blob/main/Class%210/class10.md)
