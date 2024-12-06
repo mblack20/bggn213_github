@@ -1,0 +1,272 @@
+---
+title: "Class 13: Transcriptomics and RNAseq analysis"
+author: "Morgan Black PID A14904860"
+format: pdf
+---
+
+## Import countData and colData
+```{r}
+
+#Data import 
+counts <- read.csv("airway_scaledcounts.csv", row.names = 1)
+metadata <- read.csv("airway_metadata.csv")
+
+```
+
+```{r}
+
+head(counts)
+head(metadata)
+
+```
+
+
+### Q1: How many genes are in the 'counts' dataset?
+```{r}
+
+nrow(counts)
+
+```
+
+### Q2: How many control cell lines do we have?
+```{r}
+
+table(metadata$dex)
+
+```
+
+
+
+Compare "control" vs "treated" cells first by splitting the "counts" data into control and treated datasets
+```{r}
+
+control.inds <- metadata$dex == "control"
+control.counts <- counts[ ,control.inds]
+
+treated.inds <- metadata$dex == "treated"
+treated.counts <- counts[ ,treated.inds]
+
+```
+
+
+Now we can calculate mean count value per gene for the control and treated samples. Use the 'apply()' function to apply 'mean()' over rows 
+```{r}
+
+control.mean <- apply(control.counts, 1, mean)
+treated.mean <- apply(treated.counts, 1, mean)
+
+```
+
+Plot control vs. treated mean counts
+```{r}
+
+meancounts <- data.frame(control.mean, treated.mean)
+plot(meancounts[,1], meancounts[,2], xlab= "Control", ylab="Treated")
+
+```
+
+Transform the data on a log scale for easier viewing
+```{r}
+
+plot(meancounts[,1], meancounts[,2], log="xy", xlab= "Control", ylab="Treated")
+
+#most often use log2 transformation because it makes the math easier. log2(1) 
+#is 0, meaning that if there is no change between control and treated, the 
+#log2 value is 0. If the treatment has double, then it would be log2(20/10) 
+#for example, which equals 1. If the control is higher, then the log2 value is 
+#below 0. log2foldchange!
+
+#If your log2foldchange of treatment/control is 2, there's a quadruple 
+#increase in read counts. If it's -2, then it's a quadruple decrease.
+
+```
+
+
+
+Now let's calculate log2foldchange and add it to the meancounts table
+```{r}
+
+meancounts$log2fc <- log2(meancounts$treated.mean/meancounts$control.mean)
+head(meancounts)
+
+```
+
+
+Get rid of the data points that have 0 read counts by keeping the rows that have nonzero read count values
+```{r}
+
+#What I want to get rid of
+to.rm <- rowSums(meancounts[,1:2] == 0) > 0
+
+#What to keep 
+mycounts <- meancounts[!to.rm, ]
+
+```
+
+
+
+How many downregulated genes do we have at the common log2foldchange value below -2?
+```{r}
+
+downreg <- mycounts$log2fc < -2
+sum(downreg)
+
+```
+
+
+
+How many upregulated genes at log2FC above +2?
+```{r}
+
+upreg <- mycounts$log2fc > 2
+sum(upreg)
+
+```
+
+
+We know nothing about significance or statistics yet. 
+
+## DESeq analysis!
+
+```{r}
+
+#| message: false
+library(DESeq2)
+
+```
+
+```{r}
+
+dds <- DESeqDataSetFromMatrix(countData = counts,
+                              colData = metadata,
+                              design = ~dex)
+
+```
+
+The main function in DESeq2 is called 'DESeq()'
+```{r}
+
+dds <- DESeq(dds)
+res <- results(dds)
+
+```
+```{r}
+
+head(res)
+
+#Adjusted p value helps get rid of false positives from the huge amounts of 
+#tests that are being run in this large dataset. Higher p-values that 
+#make the cutoff more strict, more likely to get true positives vs.
+#false positives.
+
+```
+
+
+
+Now we can make a volcano plot to see log2FC vs P-value
+```{r}
+
+plot(res$log2FoldChange, -log(res$padj))
+abline(v=c(-2,2), col="gray")
+abline(h=-log(0.005), col="gray")
+
+```
+
+
+```{r}
+
+mycols <- rep("gray", nrow(res))
+mycols[res$log2FoldChange > 2] <- "red"
+mycols[res$log2FoldChange < -2] <- "red"
+mycols[res$padj > 0.005] <- "gray"
+
+plot(res$log2FoldChange, -log(res$padj), col=mycols)
+abline(v=c(-2,2), col="gray")
+abline(h=-log(0.005), col="gray")
+
+```
+
+
+```{r}
+
+write.csv(res, file = "myresults.csv")
+
+```
+
+
+
+## Gene annotation 
+
+```{r}
+
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+
+```
+```{r}
+
+columns(org.Hs.eg.db)
+
+```
+
+```{r}
+
+res$symbol <- mapIds(org.Hs.eg.db,
+                      keys=row.names(res),
+                      keytype="ENSEMBL",
+                      column="SYMBOL",
+                      multiVals="first")
+
+
+```
+
+## Pathway analysis
+```{r}
+
+library(pathview)
+library(gage)
+library(gageData)
+
+data(kegg.sets.hs)
+
+head(kegg.sets.hs, 2)
+
+```
+
+Need to translate sequence ID format to ENTREZID to speak to KEGG
+```{r}
+
+res$entrez <- mapIds(org.Hs.eg.db,
+                      keys=row.names(res),
+                      keytype="ENSEMBL",
+                      column="ENTREZID",
+                      multiVals="first")
+
+```
+
+Now we can use the 'gage' function to check overlap with known KEGG pathways.
+```{r}
+
+foldchanges <- res$log2FoldChange
+names(foldchanges) <- res$entrez
+
+keggres <- gage(foldchanges, gsets=kegg.sets.hs)
+
+```
+
+
+```{r}
+
+head(keggres$less, 3)
+
+```
+
+```{r}
+
+pathview(gene.data=foldchanges, pathway.id="hsa05310")
+
+```
+
+![](hsa05310.pathview.png)
+
+

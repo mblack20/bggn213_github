@@ -1,0 +1,276 @@
+---
+title: "Class 10: Structural Bioinformatics Pt. 1"
+author: "Morgan Black (PID A14904860)"
+format: pdf
+geometry: margin=1in
+---
+
+
+## 1: Intro to the RCSB PDB
+
+## PDB Statistics
+```{r}
+
+#Import PDB data distribution by experimental method and molecular type
+
+PDB_method_file <- "Data Export Summary.csv"
+PDB_method <- read.csv(PDB_method_file, row.names=1)
+PDB_method[] <- lapply(PDB_method, function(x) {
+  if (is.character(x) || is.factor(x)) {
+    # Remove commas from numbers
+    x <- gsub(",", "", x)
+    # Convert to numeric since the previous dataset had the 
+    #values with commas as character values
+    as.numeric(x)
+  } else {
+    x  # Keep non-character columns unchanged
+  }
+})
+
+```
+
+### Q1: What percentage of structures in the PDB are solved by X-Ray and Electron Microscopy?
+```{r}
+
+(( sum(PDB_method$X.ray) + sum(PDB_method$EM) ) / ( sum(PDB_method$Total) )) *100
+
+```
+
+
+### Q2: What proportion of structures in the PDB are protein?
+```{r}
+
+#I'll be using just the "Protein (only)" row for this calculation
+( PDB_method[1,7] / sum(PDB_method$Total) )
+
+```
+
+
+### Q3: Type HIV in the PDB website search box on the home page and determine how many HIV-1 protease structures are in the current PDB?
+
+After searching "HIV" in the search bar, there are 4,563 resulting structures that come up.
+
+### HIV-Pr image 
+```{r}
+knitr::include_graphics("1HSG.png")
+```
+
+### Now highlight the Asp25 positions (ball and stick visualization)
+```{r}
+knitr::include_graphics("1HSG.asp25.png")
+
+```
+
+
+
+### Q4: Water molecules normally have 3 atoms. Why do we see just one atom per water molecule in this structure?
+```{r}
+#Structure image with water 
+knitr::include_graphics("1HSG.water.png")
+
+```
+
+This display only shows the oxygen atoms to simplify the viewing experience, rather than crowding the image with the hydrogen atoms as well.
+
+
+Q5: There is a critical “conserved” water molecule in the binding site. Can you identify this water molecule? What residue number does this water molecule have
+```{r}
+
+#The water molecule in the bindign site is selected and highlighted in green 
+#(in this image, just to the right of the ligand)
+
+knitr::include_graphics("1HSG.crith2o.png")
+
+```
+The residue number for this water molecule is HOH 308.
+
+
+### Q6: Q6: Generate and save a figure clearly showing the two distinct chains of HIV-protease along with the ligand. You might also consider showing the catalytic residues ASP 25 in each chain and the critical water (we recommend “Ball & Stick” for these side-chains). Add this figure to your Quarto document.
+```{r}
+
+knitr::include_graphics("1HSG.twochains.asp25.h20.png")
+
+```
+Here, the blue and green illustrate the two chains of HIV-protease, the pink residues are the two Asp25, the orange/red spacefill shows the ligand, and the singular yellow spacefill molecule in the middle of the ligand is the critical water. 
+
+
+
+
+## Introduction to Bio3D in R
+```{r}
+
+library(bio3d)
+pdb <- read.pdb("1hsg")
+pdb
+
+```
+
+### Q7: How many amino acid residues are there in this pdb object?
+198
+
+### Q8: Name one of the two non-protein residues.
+HOH
+
+### Q9: How many protein chains are there?
+2
+
+
+```{r}
+
+attributes(pdb)
+head(pdb$atom)
+
+
+
+```
+
+```{r}
+
+adk <- read.pdb("6s36")
+adk
+
+m <- nma(adk)
+plot(m)
+```
+
+```{r}
+mktrj(m, file="adk_m7.pdb")
+```
+
+
+Install the following packages in the R console NOT your Rmd/Quarto file
+
+install.packages("bio3d")
+install.packages("devtools")
+install.packages("BiocManager")
+
+BiocManager::install("msa")
+devtools::install_bitbucket("Grantlab/bio3d-view")
+
+
+### Q10: Which of the packages is only found on BioConductor and not CRAN?
+msa
+
+### Q11: Which of the packages is not found on BioConductor or CRAN?
+bio3d-view
+
+### Q12: T or F? Functions from the devtools package can be used to install packages from GitHub and BitBucket.
+TRUE
+
+
+```{r}
+
+library(bio3d)
+aa <- get.seq("1ake_A")
+aa
+
+```
+### Q13: How many amino acids are in this sequence?
+214
+
+```{r}
+
+# Blast search (comment out because it's taking a long time!)
+#b <- blast.pdb(aa)
+
+hits <- NULL
+hits$pdb.id <- c('1AKE_A','6S36_A','6RZE_A','3HPR_A','1E4V_A','5EJE_A','1E4Y_A','3X2S_A','6HAP_A','6HAM_A','4K46_A','3GMT_A','4PZL_A')
+
+```
+
+
+```{r}
+
+#hits <- plot(b)
+
+```
+
+```{r}
+
+# List out some 'top hits'
+#head(hits$pdb.id)
+
+```
+
+```{r}
+
+# Download related PDB files
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+
+```
+
+```{r}
+#Align and fit the identified structures
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+```
+
+
+```{r dev.off(), fig.width=8, fig.height=6}
+
+# Vector containing PDB codes for the axis of the following plot
+ids <- basename.pdb(pdbs$id)
+
+# Schematic alignment plot
+
+plot(pdbs, labels=ids)
+
+```
+
+## Annotate collected PDB structures
+
+```{r}
+
+anno <- pdb.annotate(ids)
+unique(anno$source)
+#anno
+
+```
+
+
+
+## PCA
+
+```{r}
+
+#PCA on adenylate kinase X-ray structures
+pc.xray <- pca(pdbs)
+plot(pc.xray)
+
+```
+
+
+```{r}
+
+rd <- rmsd(pdbs)
+
+# Structure-based clustering
+hc.rd <- hclust(dist(rd))
+grps.rd <- cutree(hc.rd, k=3)
+
+plot(pc.xray, 1:2, col="grey50", bg=grps.rd, pch=21, cex=1)
+
+```
+
+```{r}
+
+#Plot the main PCA results 
+
+library(ggplot2)
+library(ggrepel)
+
+df <- data.frame(PC1=pc.xray$z[,1], 
+                 PC2=pc.xray$z[,2], 
+                 col=as.factor(grps.rd),
+                 ids=ids)
+
+p <- ggplot(df) + 
+  aes(PC1, PC2, col=col, label=ids) +
+  geom_point(size=2) +
+  geom_text_repel(max.overlaps = 20) +
+  theme(legend.position = "none")
+p
+
+```
+
+
+There seem to be two very distinct commonly seen conformation states for Adk, as seen by the clustering above.

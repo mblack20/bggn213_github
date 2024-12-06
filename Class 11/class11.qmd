@@ -1,0 +1,299 @@
+---
+title: "Class 11: Structural Bioinformatics pt 2"
+author: "Morgan Black (PID: A14904860)"
+format: pdf
+---
+
+Before looking at AlphaFold, we'll finish the rest of Section 4 from last class' lab. (I've already done this in my previous Class 10 Quarto document I submitted on Gradescope, but I'll repeat it again here with the class)
+
+
+```{r}
+
+library(bio3d)
+id <- "1ake_A"
+aa <- get.seq(id)
+aa
+
+```
+
+
+```{r}
+
+b <- blast.pdb(aa)
+
+```
+
+```{r}
+
+head(b$hit.tbl)
+
+```
+
+```{r}
+
+hits <- plot(b)
+
+```
+
+
+Top hits that we like from the blast results (find the identifiers):
+```{r}
+
+hits$pdb.id
+
+```
+
+```{r}
+
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+
+```
+
+Above, we've downloaded the ADK structures but viewing all of them is messy. They need to be aligned and superimposed.
+
+Align and fit (superimpose) the structures:
+```{r}
+
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+
+```
+
+
+
+## PCA
+
+```{r}
+
+pc <- pca(pdbs)
+plot(pc)
+
+```
+
+```{r}
+
+#To just plot PC1. vs PC2
+plot(pc, pc.axes=c(1:2))
+
+```
+
+
+To examine in more detail what PC1 is capturing, we'll plot the loadings or make a movie of moving along PC1.
+```{r}
+
+mktrj(pc, pc=1, file="pc1.pdb")
+
+```
+
+
+
+
+
+Now we'll move on to the Class 11 lab sheet after working through how to use Alphafold and Mol* together to look at different models of the HIV-Pr dimer. 
+```{r}
+
+pdb_files <- list.files(path='/Users/mobla1/Documents/Graduate/Fall 2024/BGGN213/Class 11/dimer_test_23119',
+                        pattern="*.pdb",
+                        full.names = TRUE)
+
+basename(pdb_files)
+
+```
+
+```{r}
+
+library(bio3d)
+pdbs <- pdbaln(pdb_files, fit=TRUE, exefile="msa")
+
+```
+
+```{r}
+
+rd <- rmsd(pdbs, fit=T)
+range(rd)
+
+```
+
+```{r}
+
+#install.packages("pheatmap")
+library(pheatmap)
+
+colnames(rd) <- paste0("m", 1:5)
+rownames(rd) <- paste0("m", 1:5)
+pheatmap(rd)
+
+
+```
+
+```{r}
+
+# Read a reference PDB structure
+pdb <- read.pdb("1hsg")
+
+plotb3(pdbs$b[1,], typ="l", lwd=2, sse=pdb)
+points(pdbs$b[2,], typ="l", col="red")
+points(pdbs$b[3,], typ="l", col="blue")
+points(pdbs$b[4,], typ="l", col="darkgreen")
+points(pdbs$b[5,], typ="l", col="orange")
+abline(v=100, col="gray")
+
+```
+
+Improve the superposition of the models (find the most consistent core across all models):
+```{r}
+
+core <- core.find(pdbs)
+
+```
+
+```{r}
+
+core.inds <- print(core, vol=0.5)
+
+```
+
+```{r}
+
+#New directory in Class 11 folder with the new superposed coordinates, can view in Mol*
+xyz <- pdbfit(pdbs, core.inds, outpath="corefit_structures")
+
+```
+
+
+```{r}
+
+#Look at the RMSF between positions
+
+rf <- rmsf(xyz)
+
+plotb3(rf, sse=pdb)
+abline(v=100, col="gray", ylab="RMSF")
+
+```
+
+
+
+```{r}
+
+library(jsonlite)
+
+# Listing of all PAE JSON files
+pae_files <- list.files(path='/Users/mobla1/Documents/Graduate/Fall 2024/BGGN213/Class 11/dimer_test_23119',
+                        pattern=".*model.*\\.json",
+                        full.names = TRUE)
+
+```
+
+```{r}
+
+pae1 <- read_json(pae_files[1],simplifyVector = TRUE)
+pae2 <- read_json(pae_files[2],simplifyVector = TRUE)
+pae3 <- read_json(pae_files[3],simplifyVector = TRUE)
+pae4 <- read_json(pae_files[4],simplifyVector = TRUE)
+pae5 <- read_json(pae_files[5],simplifyVector = TRUE)
+
+attributes(pae1)
+
+```
+```{r}
+
+#Maximum PAE values for each model (lower score is better!)
+pae1$max_pae
+pae2$max_pae
+pae3$max_pae
+pae4$max_pae
+pae5$max_pae
+
+```
+
+```{r}
+
+plot.dmat(pae1$pae, 
+          xlab="Residue Position (i)",
+          ylab="Residue Position (j)")
+
+```
+
+```{r}
+
+plot.dmat(pae5$pae, 
+          xlab="Residue Position (i)",
+          ylab="Residue Position (j)")
+
+```
+
+Re-do the plot for model 1 but with the same data range as the plot for model 5:
+```{r}
+
+plot.dmat(pae1$pae, 
+          xlab="Residue Position (i)",
+          ylab="Residue Position (j)",
+          grid.col = "black",
+          zlim=c(0,30))
+
+```
+
+
+Residue conservation from alignment file:
+```{r}
+
+aln_file <- list.files(path='/Users/mobla1/Documents/Graduate/Fall 2024/BGGN213/Class 11/dimer_test_23119',
+                       pattern=".a3m$",
+                        full.names = TRUE)
+aln_file
+
+```
+```{r}
+
+aln <- read.fasta(aln_file[1], to.upper = TRUE)
+
+```
+
+
+```{r}
+
+#How many sequences are in this alignment?
+dim(aln$ali)
+
+```
+
+```{r}
+
+#Score residue conservation
+sim <- conserv(aln)
+
+```
+
+
+```{r}
+
+plotb3(sim[1:99], sse=trim.pdb(pdb, chain="A"),
+       ylab="Conservation Score")
+
+```
+
+```{r}
+
+#Generate consensus sequence with high cutoff value to see conserved residues
+con <- consensus(aln, cutoff = 0.9)
+con$seq
+
+```
+
+
+```{r}
+
+#Visualize these functionally important residue sites
+m1.pdb <- read.pdb(pdb_files[1])
+occ <- vec2resno(c(sim[1:99], sim[1:99]), m1.pdb$atom$resno)
+write.pdb(m1.pdb, o=occ, file="m1_conserv.pdb")
+
+```
+
+
+```{r}
+
+knitr::include_graphics("M1_CONSERV.PDB.png")
+
+```
+

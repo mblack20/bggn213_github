@@ -1,0 +1,264 @@
+---
+title: "Class 14: RNAseq Mini Project"
+author: "Morgan Black (PID A14904860)"
+format: pdf
+---
+
+## Import data
+Counts and metadata sets
+```{r}
+
+counts <- read.csv("GSE37704_featurecounts.csv", row.names = 1)
+metadata <- read.csv("GSE37704_metadata.csv")
+
+```
+
+
+## Data cleanup
+```{r}
+
+head(counts)
+
+```
+We want the columns in 'counts' to match those in the 'metadata' dataset. 
+
+```{r}
+
+colnames(counts)
+
+```
+```{r}
+
+#get rid of the first 'length' column in the counts dataset and change name 
+#to not override
+countsData <- counts[,-1]
+head(countsData)
+
+#check if they are now matching up
+all( colnames(countsData) == metadata$id)
+
+```
+
+```{r}
+
+#filter out zero counts from dataset
+
+to.keep.inds <- rowSums(countsData) > 0
+cleanCounts <- countsData[to.keep.inds,]
+
+```
+
+
+## Setup for DESeq
+```{r}
+
+#|message: false
+library(DESeq2)
+
+```
+
+## DESeq
+
+```{r}
+
+dds <- DESeqDataSetFromMatrix(countData = cleanCounts,
+                              colData = metadata,
+                              design = ~condition)
+
+```
+
+```{r}
+
+dds <- DESeq(dds)
+
+```
+
+
+
+## Inspect results
+
+```{r}
+
+res <- results(dds)
+res
+
+```
+
+
+## Data visualization
+```{r}
+
+plot(res$log2FoldChange, -log(res$padj))
+
+#A prettier plot
+
+mycols <- rep("gray", nrow(res) )
+
+# Color red the genes with absolute fold change above 2
+mycols[ abs(res$log2FoldChange) > 2 ] <- "red"
+
+# Color blue those with adjusted p-value less than 0.01
+#  and absolute fold change more than 2
+inds <- (res$padj < 0.01) & (abs(res$log2FoldChange) > 2 )
+mycols[ inds ] <- "blue"
+
+plot( res$log2FoldChange, -log(res$padj), col=mycols, 
+      xlab="Log2(FoldChange)",
+      ylab="-Log(P-value)" )
+
+```
+
+## Annotation of Genes
+```{r}
+
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+
+columns(org.Hs.eg.db)
+
+res$symbol <- mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    keytype="ENSEMBL",
+                    column="SYMBOL",
+                    multiVals="first")
+
+res$entrez <- mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="ENTREZID",
+                    multiVals="first")
+
+res$genename <- mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="GENENAME",
+                    multiVals="first")
+
+head(res)
+
+```
+
+We can look at a subset of top hits by using a starting point of +2/-2 log2FC and adjusted p-value of less than 0.05. 
+```{r}
+
+top.inds <- (abs(res$log2FoldChange) > 2) & (res$padj < 0.05)
+
+#Issue with some of the adjusted p values being NA, so make them FALSE
+top.inds[is.na(top.inds)] <- FALSE
+
+```
+
+```{r}
+
+top.genes <- res[top.inds,]
+
+```
+
+
+Now we can save our top hits to a CSV file 
+```{r}
+
+write.csv(top.genes, file="top_geneset.csv")
+
+```
+
+```{r}
+
+res[top.inds,]
+
+```
+
+
+
+## Pathway analysis
+```{r}
+
+library(gage)
+library(gageData)
+library(pathview)
+
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+
+```
+
+```{r}
+
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+
+```
+
+```{r}
+
+#KEGG speaks in ENTREZ, give it a vector as input
+foldchanges <- res$log2FoldChange
+names(foldchanges) <- res$entrez
+head(foldchanges)
+
+```
+```{r}
+
+keggres <- gage(foldchanges, gsets = kegg.sets.hs)
+
+```
+
+```{r}
+
+attributes(keggres)
+
+```
+
+```{r}
+
+head(keggres$less)
+
+```
+```{r}
+
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+
+```
+
+## Gene ontology
+```{r}
+
+data(go.sets.hs)
+data(go.subs.hs)
+
+# Focus on Biological Process subset of GO
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gores = gage(foldchanges, gsets=gobpsets, same.dir=TRUE)
+
+```
+
+```{r}
+
+head(gores$less)
+
+```
+
+## Reactome analysis
+
+To run reactome online you need a text file with one gene ID per line 
+```{r}
+
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), "symbol"]
+print(paste("Total number of significant genes:", length(sig_genes)))
+
+```
+
+```{r}
+
+write.table(sig_genes, file="significant_genes.txt", 
+            row.names=FALSE, 
+            col.names=FALSE, 
+            quote=FALSE)
+
+```
+
+
+![](R-HSA-69278.jpg)
+
+
+
