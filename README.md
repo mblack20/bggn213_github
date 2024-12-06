@@ -11,3 +11,6 @@ My classwork from [BGGN213](https://bioboot.github.io/bggn213_F24/) at UC San Di
 - Class 10: [Sructural Bioinformatics](https://github.com/mblack20/bggn213_github/blob/main/Class%2010/class10.md)
 - Class 11: [AlphaFold and Structural Prediction](https://github.com/mblack20/bggn213_github/blob/main/Class%2011/class11.md)
 - Class 12: [Genome Informatics and High-throughput Sequencing Review](https://github.com/mblack20/bggn213_github/blob/main/Class%2012/class12.md)
+- Class 13: [Transcriptomics, RNA-Seq analysis, and the Interpretation of Gene Lists](https://github.com/mblack20/bggn213_github/blob/main/Class%2013/class13.md)
+- Class 14: [RNA-Seq Mini Project](https://github.com/mblack20/bggn213_github/blob/main/Class%2014/class14.md)
+- Class 15: [Investigating Pertussis Resurgence Mini Project](https://github.com/mblack20/bggn213_github/blob/main/Class%2015/class15.md)
